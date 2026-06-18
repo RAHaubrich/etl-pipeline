@@ -6,9 +6,99 @@ import psycopg
 # from psycopg import sql
 from psycopg.errors import UniqueViolation
 import pandas as pd
+from datetime import datetime
+import numpy as np
 
 # Default path to the same location as this file.
 current_directory = Path(__file__).resolve().parent
+
+def log(log_message):
+    # Crate a new Logs folder if it does not exist.
+    Path("Logs").mkdir(exist_ok=True)
+
+    # Fetch the current date and time.
+    current_date_time = datetime.now()
+
+    # Create or open a log file relevant to the current day.
+    log_name = "log-" + str(current_date_time.date()) + ".txt"
+    log_path = current_directory / "Logs" / log_name
+
+    # Log whatever event occurred to said file, including the time of the event down to the millisecond.
+    with open(log_path, "a") as log_file:
+        log_file.write("[" + str(current_date_time.time()) + "] " + log_message + "\n")
+
+def commit_json(file, arrow, link):
+    # Open json file 
+    json_file = json.load(file)
+
+    # Create format to insert users
+    insert_user = "INSERT INTO user_profiles (name, language, id, bio, version) VALUES (%s, %s, %s, %s, %s);"
+
+    # Loop through all users and insert any non-duplicates with a valid ID
+    for user in json_file:
+        
+        # Set defaults for all fields then replace with values 
+        name, language, id, bio, version = NULL, NULL, NULL, NULL, NULL
+
+        if "name" in user:
+            name = user["name"]
+        if "language" in user:
+            language = user["language"]
+        if "id" in user:
+            id = user["id"]
+        if "bio" in user:
+            bio = user["bio"]
+        if "version" in user:
+            version = user["version"]
+
+        # For all non-null values, insert the entry into the table
+        if id != NULL:
+            try:
+                arrow.execute(insert_user, (name, language, id, bio, version))
+                log(f"Inserted row with ID {id}.")
+            except UniqueViolation as e:
+                log(f"Error: User ID {id} already exists.")
+        else:
+            log("Skipping row with missing ID.")
+
+        link.commit()
+
+def commit_csv(file, arrow, link):
+    # Convert the CSV file into a Pandas DataFrame
+    csv_df = pd.read_csv(file)
+
+    if np.array_equal(csv_df.columns.values, np.array(['name', 'language', 'id', 'bio', 'version'])) == True:
+        # Set default values for all columns of the DataFrame
+        csv_df = csv_df.replace(NaN, NULL)
+        csv_df_fill = csv_df.fillna({"name": NULL, "language": NULL, "id": NULL, "bio": NULL, "version": NULL})
+
+        # Transform above DataFrame into a NumPy array
+        csv_records = csv_df_fill.to_records(index = False)
+        
+        # For each entry in the CSV file, ensure the ID column is not empty, and if so attempt to insert. The only exception will be if the user's ID is already present.
+        for row in csv_records:
+            name = row[csv_df.columns.get_loc('name')]
+            language = row[csv_df.columns.get_loc('language')]
+            id = row[csv_df.columns.get_loc('id')]
+            bio = row[csv_df.columns.get_loc('bio')]
+            version = row[csv_df.columns.get_loc('version')]
+
+            row_tuple = (name, language, id, bio, version)
+
+            if id != NULL:
+                try:
+                    arrow.execute("""
+                        INSERT INTO user_profiles (name, language, id, bio, version) VALUES (%s, %s, %s, %s, %s);
+                    """, row_tuple)
+                    log(f"Inserted row with ID {id}.")
+                except UniqueViolation as e:
+                    log(f"Error: User ID already exists. ({e})")
+            else:
+                log("Skipping row with missing user ID.")
+
+            link.commit()
+    else:
+        log(f"Invalid columns in {file}, skipping file.")
 
 def import_file(file_name):
     # Set the working file to the user input
@@ -20,7 +110,6 @@ def import_file(file_name):
     valid_connection = 1
 
     try:
-        
         # Establish connection to postgres server
         connection = psycopg.connect(
                 dbname="postgres",
@@ -29,17 +118,19 @@ def import_file(file_name):
                 host="localhost",
                 port="5432"
             )
+        log("Connected to server successfully.")
     except:
-
         # Include a fallback in case I'm stupid and forget to start the postgres server
-        print("Connection not found!")
+        log("Unable to connect to server.")
         valid_connection = 0
 
     # Execute only if the connection is established
-    if valid_connection != 0:
+    if valid_connection != 0:        
+        log(f"Reading from file {file_name}.")
+
         with connection.cursor() as cur:
             
-            # Creates a
+            # Creates a table if no such table exists.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS user_profiles (
                     name TEXT DEFAULT NULL,
@@ -53,69 +144,15 @@ def import_file(file_name):
             with open(working_file, "r") as read_file:
 
                 if file_extension == "json":
-                    
-                    # Open json file 
-                    json_file = json.load(read_file)
-
-                    # Create format to insert users
-                    insert_user = "INSERT INTO user_profiles (name, language, id, bio, version) VALUES (%s, %s, %s, %s, %s);"
-
-                    # Loop through all users and insert any non-duplicates with a valid ID
-                    for user in json_file:
-                        
-                        # Set defaults for all fields then replace with values 
-                        name, language, id, bio, version = NULL, NULL, NULL, NULL, NULL
-
-                        if "name" in user:
-                            name = user["name"]
-                        if "language" in user:
-                            language = user["language"]
-                        if "id" in user:
-                            id = user["id"]
-                        if "bio" in user:
-                            bio = user["bio"]
-                        if "version" in user:
-                            version = user["version"]
-
-                        # For all non-null values, insert the entry into the table
-                        if id != NULL:
-                            try:
-                                cur.execute(insert_user, (name, language, id, bio, version))
-                            except UniqueViolation as e:
-                                print(f"Error: User ID {id} already exists. ({e})")
-                        else:
-                            print("Skipping row with missing ID.")
-
-                        connection.commit()
+                    commit_json(read_file, cur, connection)
                     
                 elif file_extension == "csv":
-
-                    # Convert the CSV file into a Pandas DataFrame
-                    csv_df = pd.read_csv(read_file)
-
-                    # Set default values for all columns of the DataFrame
-                    csv_df = csv_df.replace(NaN, NULL)
-                    csv_df_fill = csv_df.fillna({"name": NULL, "language": NULL, "id": NULL, "bio": NULL, "version": NULL})
-
-                    # Transform above DataFrame into a NumPy array
-                    csv_records = csv_df_fill.to_records(index = False)
-                    
-                    # For each entry in the CSV file, ensure the ID column is not empty, and if so attempt to insert. The only exception will be if the user's ID is already present.
-                    for row in csv_records:
-                        if row[2] != NULL:
-                            try:
-                                cur.execute("""
-                                    INSERT INTO user_profiles (name, language, id, bio, version) VALUES (%s, %s, %s, %s, %s);
-                                """, tuple(row)) 
-                            except UniqueViolation as e:
-                                print(f"Error: That user ID already exists. ({e})")
-                        else:
-                            print("Skipping row with missing ID.")
-
-                        connection.commit()
+                    commit_csv(read_file, cur, connection)
 
             cur.close()
             connection.close()
+        
+        log(f"Finished reading from file {file_name}.")
 
-# import_file("single_example.csv")
+import_file("single_example.csv")
 # import_file("first5.json")
