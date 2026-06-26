@@ -26,6 +26,21 @@ def log(log_message):
     with open(log_path, "a") as log_file:
         log_file.write("[" + str(current_date_time.time()) + "] " + log_message + "\n")
 
+def log_reject(rejected_message):
+    # Crate a new Logs folder if it does not exist.
+    Path("Logs").mkdir(exist_ok=True)
+
+    # Fetch the current date and time.
+    current_date_time = datetime.now()
+
+    # Create or open a log file relevant to the current day.
+    rejected_name = "rejected_rows.txt"
+    rejected_path = current_directory / "Logs" / rejected_name
+
+    # Log whatever event occurred to said file, including the time of the event down to the millisecond.
+    with open(rejected_path, "a") as rejected_file:
+        rejected_file.write("[" + str(current_date_time.time()) + "] " + rejected_message + "\n")
+
 def commit_json(file, arrow, link):
     # Open json file 
     json_file = json.load(file)
@@ -57,8 +72,10 @@ def commit_json(file, arrow, link):
                 log(f"Inserted row with ID {id}.")
             except UniqueViolation as e:
                 log(f"Error: User ID {id} already exists.")
+                log_reject(f"{user}")
         else:
             log("Skipping row with missing ID.")
+            log_reject(f"{user}")
 
         link.commit()
 
@@ -92,8 +109,10 @@ def commit_csv(file, arrow, link):
                     log(f"Inserted row with ID {id}.")
                 except UniqueViolation as e:
                     log(f"Error: User ID already exists. ({e})")
+                    log_reject(f"{row}")
             else:
                 log("Skipping row with missing user ID.")
+                log_reject(f"{row}")
 
             link.commit()
     else:
@@ -155,6 +174,15 @@ def import_file(file_name):
             connection.close()
         
         log(f"Finished reading from file {file_name}.")
+
+def test_return_none():
+    csv_test = commit_csv("single_example.csv")
+    json_test = commit_json("first5.json")
+    import_test = import_file("single_example.csv")
+    
+    assert csv_test is None
+    assert json_test is None
+    assert import_test is None
 
 print("Please enter the file name below:")
 user_file = input(str)
