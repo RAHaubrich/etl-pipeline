@@ -1,13 +1,12 @@
 from asyncio.windows_events import NULL
 import json
 from pathlib import Path
-from numpy import NaN
 import psycopg
-# from psycopg import sql
 from psycopg.errors import UniqueViolation
 import pandas as pd
 from datetime import datetime
 import numpy as np
+from numpy import NaN
 
 # Default path to the same location as this file.
 current_directory = Path(__file__).resolve().parent
@@ -129,7 +128,7 @@ def import_file(file_name):
         log(f"Reading from file {file_name}.")
 
         with connection.cursor() as cur:
-            
+
             # Creates a table if no such table exists.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS user_profiles (
@@ -149,10 +148,15 @@ def import_file(file_name):
                 elif file_extension == "csv":
                     commit_csv(read_file, cur, connection)
 
+                else:
+                    log(f"Invalid file extension: {file_extension}.")
+
             cur.close()
             connection.close()
         
         log(f"Finished reading from file {file_name}.")
 
-import_file("single_example.csv")
-# import_file("first5.json")
+print("Please enter the file name below:")
+user_file = input(str)
+user_file = str(user_file)
+import_file(user_file)

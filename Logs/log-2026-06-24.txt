@@ -1,0 +1,12 @@
+[10:22:01.617595] Connected to server successfully.
+[10:22:01.618598] Reading from file single_example.csv.
+[10:22:26.230535] Connected to server successfully.
+[10:22:26.231537] Reading from file single_example.csv.
+[10:22:26.272059] Error: User ID already exists. (duplicate key value violates unique constraint "user_profiles_id_key"
+DETAIL:  Key (id)=(V59OF92YF627HFY0) already exists.)
+[10:22:26.273059] Finished reading from file single_example.csv.
+[10:22:48.148707] Connected to server successfully.
+[10:22:48.150707] Reading from file single_example.csv.
+[10:22:48.165705] Error: User ID already exists. (duplicate key value violates unique constraint "user_profiles_id_key"
+DETAIL:  Key (id)=(V59OF92YF627HFY0) already exists.)
+[10:22:48.168708] Finished reading from file single_example.csv.
