@@ -65,6 +65,8 @@ def commit_json(file, arrow, link):
             bio = user["bio"]
         if "version" in user:
             version = user["version"]
+            if type(version) != float:
+                version = None
 
         # For all non-null values, insert the entry into the table
         if id != NULL:
@@ -100,6 +102,8 @@ def commit_csv(file, arrow, link):
             id = id[0:16]
             bio = row[csv_df.columns.get_loc('bio')]
             version = row[csv_df.columns.get_loc('version')]
+            if type(version) != float:
+                version = None
 
             row_tuple = (name, language, id, bio, version)
 
@@ -121,8 +125,11 @@ def commit_csv(file, arrow, link):
         log(f"Invalid columns in {file}, skipping file.")
 
 def import_file(file_name):
+    # Crate a new Logs folder if it does not exist.
+    Path("Data").mkdir(exist_ok=True)
+
     # Set the working file to the user input
-    working_file = current_directory / str(file_name)
+    working_file = current_directory / "Data" / str(file_name)
 
     parse_periods = file_name.split(".")
     file_extension = parse_periods[-1]
