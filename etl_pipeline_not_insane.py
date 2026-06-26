@@ -60,6 +60,7 @@ def commit_json(file, arrow, link):
             language = user["language"]
         if "id" in user:
             id = user["id"]
+            id = id[0:16]
         if "bio" in user:
             bio = user["bio"]
         if "version" in user:
@@ -72,10 +73,10 @@ def commit_json(file, arrow, link):
                 log(f"Inserted row with ID {id}.")
             except UniqueViolation as e:
                 log(f"Error: User ID {id} already exists.")
-                log_reject(f"{user}")
+                log_reject(f"{user} Duplicate user ID.")
         else:
             log("Skipping row with missing ID.")
-            log_reject(f"{user}")
+            log_reject(f"{user} Missing user ID.")
 
         link.commit()
 
@@ -96,6 +97,7 @@ def commit_csv(file, arrow, link):
             name = row[csv_df.columns.get_loc('name')]
             language = row[csv_df.columns.get_loc('language')]
             id = row[csv_df.columns.get_loc('id')]
+            id = id[0:16]
             bio = row[csv_df.columns.get_loc('bio')]
             version = row[csv_df.columns.get_loc('version')]
 
@@ -109,10 +111,10 @@ def commit_csv(file, arrow, link):
                     log(f"Inserted row with ID {id}.")
                 except UniqueViolation as e:
                     log(f"Error: User ID already exists. ({e})")
-                    log_reject(f"{row}")
+                    log_reject(f"{row} Duplicate user ID.")
             else:
                 log("Skipping row with missing user ID.")
-                log_reject(f"{row}")
+                log_reject(f"{row} Missing user ID.")
 
             link.commit()
     else:
